@@ -1,0 +1,28 @@
+#!/bin/bash -xe
+
+echo "===== Begin user-data script =====" | tee /var/log/user-data.log
+
+while ! ping -c1 google.com &>/dev/null; do     # Waits for network
+  echo "Waiting for network..." | tee -a /var/log/user-data.log
+  sleep 3
+done
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt update -y
+apt install -y curl unzip awscli      # Update and install dependencies
+
+INSTALL_DIR="/home/ubuntu/openops"      # Define installation path
+mkdir -p "$INSTALL_DIR"
+chown ubuntu:ubuntu "$INSTALL_DIR"
+
+# Below Script Runs OpenOps installation, writes logs and waits for full output
+sudo -u ubuntu env HOME=/home/ubuntu USER=ubuntu \
+  OPENOPS_INSTALLATION_PATH="$INSTALL_DIR" \
+  INTERACTIVE=false SSH_CLIENT=true \
+  bash -c 'curl -fsSL https://openops.sh/install | bash -xe' | tee -a /var/log/user-data.log
+
+echo "===== End of user-data script =====" | tee -a /var/log/user-data.log
+echo "OpenOps should now be up and running." | tee -a /var/log/user-data.log
+
+touch /var/lib/cloud/instance/boot-finished     # Signal success to cloud-init (blocks Terraform until completion)
